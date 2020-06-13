@@ -17,6 +17,8 @@ def swap_faces(Xs_raw, Xt_raw):
     G.load_state_dict(torch.load('./saved_models/G_latest.pth', map_location=device))
     G = G.cpu()
 
+    f_siz = 256
+
     arcface = Backbone(50, 0.6, 'ir_se').to(device)
     arcface.eval()
     arcface.load_state_dict(torch.load('./saved_models/model_ir_se50.pth', map_location=device), strict=False)
@@ -27,7 +29,7 @@ def swap_faces(Xs_raw, Xt_raw):
     ])
 
     Xs_img = Image.fromarray(Xs_raw)
-    Xs = detector.align(Xs_img, crop_size=(64, 64))
+    Xs = detector.align(Xs_img, crop_size=(f_siz, f_siz))
 
     Xs = test_transform(Xs)
     Xs = Xs.unsqueeze(0).cpu()
@@ -35,17 +37,17 @@ def swap_faces(Xs_raw, Xt_raw):
         embeds, Xs_feats = arcface(F.interpolate(Xs, (112, 112), mode='bilinear', align_corners=True))
         embeds = embeds.mean(dim=0, keepdim=True)
 
-    mask = np.zeros([64, 64], dtype=np.float)
-    for i in range(64):
-        for j in range(64):
-            dist = np.sqrt((i-32)**2 + (j-32)**2)/32
+    mask = np.zeros([f_siz, f_siz], dtype=np.float)
+    for i in range(f_siz):
+        for j in range(f_siz):
+            dist = np.sqrt((i-(f_siz/2))**2 + (j-(f_siz/2))**2)/(f_siz/2)
             dist = np.minimum(dist, 1)
             mask[i, j] = 1-dist
     mask = cv2.dilate(mask, None, iterations=20)
 
     Xt_img = Image.fromarray(Xt_raw)
 
-    Xt, trans_inv = detector.align(Xt_img, crop_size=(64, 64), return_trans_inv=True)
+    Xt, trans_inv = detector.align(Xt_img, crop_size=(f_siz, f_siz), return_trans_inv=True)
 
     Xt = test_transform(Xt)
 
